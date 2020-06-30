@@ -59,24 +59,13 @@ print("Wheel ok")
 
 
 #Motors target
-IN1_TARGET = 14
-IN2_TARGET = 15
-ENA_TARGET = 18
-GPIO.setup(IN1_TARGET, GPIO.OUT)
-GPIO.setup(IN2_TARGET, GPIO.OUT)
-GPIO.setup(ENA_TARGET, GPIO.OUT)
-GPIO.output(ENA_TARGET, GPIO.HIGH)
-#target_pwm = GPIO.PWM(ENA_TARGET,100)
+IN_TARGET = 20
+GPIO.setup(IN_TARGET, GPIO.OUT)
 print("Target ok")
 
 #Motors spines
-IN1_SPINES = 24
-IN2_SPINES = 16
-ENB_SPINES = 20
-GPIO.setup(IN1_SPINES, GPIO.OUT)
-GPIO.setup(IN2_SPINES, GPIO.OUT)
-GPIO.setup(ENB_SPINES, GPIO.OUT)
-spines_pwm = GPIO.PWM(ENB_SPINES,100)
+IN_SPINES = 24
+GPIO.setup(IN_SPINES, GPIO.OUT)
 print("Spines ok")
 
 #Target
@@ -524,6 +513,7 @@ def playMusic(file_name):
     omxprocess = subprocess.Popen(['omxplayer', MUSIC_DIRECTORY + file_name, '--loop', '--vol', str(volume)], stdin=subprocess.PIPE, stdout=None, stderr=None, bufsize=0)
     omxprocess_started = True
 
+#Stops the music
 def stopMusic():
     global omxprocess
     global omxprocess_started
@@ -531,43 +521,18 @@ def stopMusic():
         omxprocess.stdin.write(b'q')
     omxprocess_started = False
 
-#Make sure that opening and closing of the spines happens correctly
-def openSpines(spinesOpenedAt, spinesClosedAt):
 
-    now = time.time()
-
-    #It completed any previous closing, so we can proceed to start opening the spines
-    if(spinesClosedAt > spinesOpenedAt and now - spinesClosedAt > 0.5):
-        spines_pwm.stop()
-        GPIO.output(IN1_SPINES,False)
-        GPIO.output(IN2_SPINES,True)
-        return (now, spinesClosedAt)
-
-
-    #It already completed any opening
-    if(spinesClosedAt < spinesOpenedAt and now - spinesOpenedAt > 0.5):
-        spines_pwm.stop()
-
-    return (spinesOpenedAt, spinesClosedAt)
-
-def closeSpines(spinesOpenedAt, spinesClosedAt):
-
-    now = time.time()
-
-    #It completed any previous opening, so we can proceed to start closing the spines
-    if(spinesOpenedAt > spinesClosedAt and now - spinesOpenedAt > 0.5):
-        spines_pwm.stop()
-        GPIO.output(IN1_SPINES,True)
-        GPIO.output(IN2_SPINES,False)
-        return (spinesOpenedAt, now)
-
-    #It already completed any closing
-    if(spinesOpenedAt < spinesClosedAt and now - spinesClosedAt > 0.5):
-        spines_pwm.stop()
-
-    return (spinesOpenedAt, spinesClosedAt)
-
-
+#Open or close the spines
+def moveSpines():
+    GPIO.output(IN_SPINES, GPIO.HIGH) 
+    time.sleep(0.148)
+    GPIO.output(IN_SPINES, GPIO.LOW)
+    
+#Rotate the target of 90°
+def moveTarget():
+	GPIO.output(IN_TARGET, GPIO.HIGH) 
+	time.sleep(0.14)
+	GPIO.output(IN_TARGET, GPIO.LOW)
 
 #Core of the robot
 def startGame(chat_id):
@@ -630,9 +595,6 @@ def startGame(chat_id):
     start_time_inactive = 0
     start_time_eating   = 0
     start_time_eaten    = 0
-
-    #Start moving target
-    #motor_target.forward()
 
     #Array containing the last three measures from some of the sensors
     #(to make robot resilient to measurement errors)
@@ -987,9 +949,7 @@ def wait_msg(msg):
 /ultra - Returns distance from ultrasonic sensors\n\n\
 -------------------> MOTORS <----------------------\n\
 /moveTarget - Moves the target of 90°\n\
-/moveSpines - Moves the spines for 2s\n\
-/openSpines - Opens the spines\n\
-/closeSpines - Closes the spined\n\
+/moveSpines - Open or close the spines\n\
 /neck - Lowers and then raises the neck\n\
 /moveForward - Moves forward for 1.5 s\n\
 /moveRight - Moves right 90°\n\
@@ -1084,36 +1044,14 @@ Proceeding to calibration".format(blue_treshold, red_treshold))
 
     ##CHANGE TARGET + SPINES. NO MORE PWM
     if command == '/moveTarget':
-       # target_pwm.start(70.0)
-        GPIO.output(IN1_TARGET,GPIO.HIGH)
-        GPIO.output(IN2_TARGET,GPIO.LOW)
-        time.sleep(0.20)
-        GPIO.output(IN1_TARGET,GPIO.LOW)
-        GPIO.output(IN2_TARGET,GPIO.LOW)
-        #target_pwm.stop()
+        moveTarget()
 
     if command == '/moveSpines':
-        spines_pwm.start(50.0)
-        GPIO.output(IN1_SPINES,True)
-        GPIO.output(IN2_SPINES,False)
-        time.sleep(2)
-        spines_pwm.stop()
-    if command == '/closeSpines':
-        spines_pwm.start(50.0)
-        GPIO.output(IN1_SPINES,True)
-        GPIO.output(IN2_SPINES,False)
-        time.sleep(0.5)
-        spines_pwm.stop()
-    if command == '/openSpines':
-        spines_pwm.start(50.0)
-        GPIO.output(IN1_SPINES,False)
-        GPIO.output(IN2_SPINES,True)
-        time.sleep(0.5)
-        spines_pwm.stop()
+        moveSpines()
 
     if command == '/neck':
         lowerNeck()
-        time.sleep(2)
+        time.sleep(1.5)
         raiseNeck()
 
     if command == '/em1':
@@ -1169,7 +1107,6 @@ Proceeding to calibration".format(blue_treshold, red_treshold))
         bot.sendMessage(chat_id, "Bye!\nRemember to switch off the motors, turn off the speaker and unplug the powerbank")
         stop()
         stopMusic()
-        #closeSpines()
         GPIO.cleanup()
         subprocess.call('sudo shutdown -h now', shell = True)
 
