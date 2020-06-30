@@ -26,8 +26,8 @@ signal_targ = 6
 S2 = 26
 S3 = 2
 NUM_CYCLES = 10
-blue_treshold = 700
-red_treshold  = 700
+blue_treshold = 1996
+red_treshold  = 874
 COLOR_BLUE = 0
 COLOR_RED  = 1
 redexcesslight = 0
@@ -122,8 +122,8 @@ current_emotion   = EMOTION_NORMAL
 camera = cv2.VideoCapture(0)
 camera.set(3,600)
 HUE_VALUE = 170 #red
-colorLower = np.array([HUE_VALUE - 5, 100, 100], dtype=np.uint8) #Lower and upper boundary target color
-colorUpper = np.array([HUE_VALUE + 5, 255, 255], dtype=np.uint8)
+colorLower = np.array([HUE_VALUE - 10, 100, 100], dtype=np.uint8) #Lower and upper boundary target color
+colorUpper = np.array([HUE_VALUE + 10, 255, 255], dtype=np.uint8)
 print("Camera ok")
 
 #Attacking info
@@ -173,6 +173,7 @@ def stop():
     GPIO.output(IN2_WHEEL, GPIO.LOW)
     GPIO.output(IN3_WHEEL, GPIO.LOW)
     GPIO.output(IN4_WHEEL, GPIO.LOW)
+stop()
 
 #Returns whether from input 'signal' the specified color is detected
 def is_color(signal, color):
@@ -473,6 +474,7 @@ def checkEnemy(frame, direction):
     cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
 
     if len(cnts) == 0:
+        print("primo if")
         return (False, direction)
 
     #Find the largest contour in the mask, then use
@@ -578,6 +580,7 @@ def startGame(chat_id):
     lastTimePondWasSeen     = 0
     lastTimeEnemyWasSeen    = 0
     lastTimeNeckWasRaised   = 0
+    lastTimeTargetWasMoved  = 0
     escapedTime             = 0
     startDiagonalTime       = 0
     score                   = 60
@@ -587,8 +590,7 @@ def startGame(chat_id):
     distanceRight           = 1.0
     distanceLeft            = 1.0
     distanceBack            = 1.0
-    spinesOpenedAt          = 0.0
-    spinesClosedAt          = 0.1
+    spinesAreOpen           = False
 
     #Timers to keep score updated
     start_time_drinking = 0
@@ -642,7 +644,7 @@ def startGame(chat_id):
         check_on_the_sides += 1
         if(check_on_the_sides % 20 == 0):
             distanceRight = computeDistance(ULTRA_ECHO_RIGHT)
-            distanceLeft  = computeDistance(ULTRA_ECHO_LEFT_BACK)
+            distanceLeft  = computeDistance(ULTRA_ECHO_LEFT_FRONT)
             distanceBack  = computeDistance(ULTRA_ECHO_BACK)
 
 
@@ -675,7 +677,7 @@ def startGame(chat_id):
 
 
 
-        ###############    OUR TARGET  ###############
+        ###############  OUR TARGET  ###############
         #Check if someone is touching our target
         if threeMeasuresResults(eaten_measures) and not isEaten:
             isEaten = True
@@ -719,18 +721,26 @@ def startGame(chat_id):
             raiseNeck()
             if not isDrinking:
                 backwardLeft()
-                time.sleep(0.6)
+                time.sleep(1.0)
+                stop()
 
 
 
-        ################## MOVING TARGET + SPINES #######################
+        ###############    MOVING TARGET + SPINES    ####################
         #Moves the target if there's a threat approaching or if robot has stopped to drink
-        #if (distanceBack < 0.2 or distanceLeft < 0.2 or distanceBack <0.2 or state == DRINKING):
-            #motor_target.forward()
-        #    (spinesOpenedAt, spinesOpenedAt) = openSpines(spinesOpenedAt, spinesClosedAt, isOpening=True)
-       # else:
-            #motor_target.stop()
-        #    (spinesOpenedAt, spinesClosedAt) = closeSpines(spinesOpenedAt, spinesClosedAt, isOpening=False)
+        if (distanceBack < 0.2 or distanceLeft < 0.2 or distanceRight < 0.2 or state == DRINKING):
+            if time.time() > (lastTimeTargetWasMoved + 3.5):
+                lastTimeTargetWasMoved = time.time()
+                moveTarget()
+            if (not spinesAreOpen):
+                moveSpines()
+                spinesAreOpen = True
+                    
+        else:
+            if (spinesAreOpen):
+                moveSpines()
+                spinesAreOpen = False
+            
 
 
         ###############      INACTIVITY  ##################
@@ -822,6 +832,10 @@ def startGame(chat_id):
             distFront = computeDistance(ULTRA_ECHO_FRONT)
             distBack = computeDistance(ULTRA_ECHO_BACK)
 
+            if time.time() > (lastTimeTargetWasMoved + 3.5):
+                lastTimeTargetWasMoved = time.time()
+                moveTarget()
+
             if (distBack < MAX_DISTANCE_WALL):
                 if (time.time() < escapedTime + 2):
                     forward()
@@ -887,7 +901,7 @@ def startGame(chat_id):
             ### Drop attack
             if time.time() > lastTimeEnemyWasSeen + TIME_TO_DROP_ATTACK:
                 state = WALKING
-                changeEmotion(EMOTION_NORMAL)
+                changeEmotion(EMOTION_NORMAL, chat_id)
 
 
 
@@ -1089,11 +1103,11 @@ Proceeding to calibration".format(blue_treshold, red_treshold))
             volume += 300
 
     if command == '/checkEnemy':
-        camera.release()
-        camera = cv2.VideoCapture(0)
-        camera.set(3,600)
         (grabbed, frame) = camera.read()
         (isEnemy, _) = checkEnemy(frame, ENEMY_FORWARD)
+        #camera.release()
+        #camera = cv2.VideoCapture(0)
+        #camera.set(3,600)
         bot.sendMessage(chat_id, "{0}".format(str(isEnemy)))
 
     if command == '/IP':
