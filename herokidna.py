@@ -223,6 +223,7 @@ You will have ten seconds between each step")
     blue = []
     while(i < 100):
         blue.append(get_color(signal_pond, COLOR_BLUE))
+        time.sleep(0.01)
         i += 1
     avg_blue = sum(blue)/100
 
@@ -234,6 +235,7 @@ You will have ten seconds between each step")
     not_blue = []
     while(i < 100):
         not_blue.append(get_color(signal_pond, COLOR_BLUE))
+        time.sleep(0.01)
         i += 1
     avg_not_blue = sum(not_blue)/100
 
@@ -245,6 +247,7 @@ You will have ten seconds between each step")
     red = []
     while(i < 100):
         red.append(get_color(signal_targ, COLOR_RED))
+        time.sleep(0.01)
         i += 1
     avg_red = sum(red)/100
 
@@ -256,6 +259,7 @@ You will have ten seconds between each step")
     not_red = []
     while(i < 100):
         not_red.append(get_color(signal_targ, COLOR_RED))
+        time.sleep(0.01)
         i += 1
     avg_not_red = sum(not_red)/100
 
@@ -283,42 +287,6 @@ You will have ten seconds between each step")
         - Not-red average: {4:.2f}\n\
         - Red treshold: {5:.2f}\n".format(avg_blue, avg_not_blue, blue_treshold, avg_red, avg_not_red, red_treshold))
 
-
-#Function to calibrate ultrasonic sensors
-def calibrateUltra(measures, chat_id):
-    i = 0
-    discarded = 0
-    distLeftFront = []
-    distLeftBack = []
-    #Compute the first mean values
-    while (i < 5):
-        distLeftFront.append(computeDistance(ULTRA_ECHO_LEFT_FRONT)*100)
-        time.sleep(0.03)
-        distLeftBack.append(computeDistance(ULTRA_ECHO_LEFT_BACK)*100)
-        time.sleep(0.03)
-        i += 1
-    avgLF = sum(distLeftFront)/i
-    avgLB = sum(distLeftBack)/i
-    #bot.sendMessage(chat_id, "first avgLF: {0} cm\n first avgLB: {1} cm".format(avgLF,avgLB))
-    while(i < measures):
-        newLB = computeDistance(ULTRA_ECHO_LEFT_BACK)*100
-        time.sleep(0.03)
-        newLF = computeDistance(ULTRA_ECHO_LEFT_FRONT)*100
-        time.sleep(0.03)
-        if (discarded > measures):
-            bot.sendMessage(chat_id, "Please try again".format(avgLF,avgLB))
-            return 0
-        if (newLF > (avgLF*1.1) or newLF < (avgLF*0.9) or newLB > (avgLB*1.1) or newLB < (avgLB*0.9)):
-            discarded += 1
-            continue
-        else:
-            distLeftFront.append(newLF)
-            distLeftBack.append(newLB)
-            i += 1
-            avgLF = sum(distLeftFront)/i
-            avgLB = sum(distLeftBack)/i
-    bot.sendMessage(chat_id, "Left Front: {0} cm\nLeft Back: {1} cm\nDiscarded: {2}".format(avgLF,avgLB,discarded))
-    return (avgLF-avgLB)
 
 #Moves the servomotor
 #Angle from 0 to 180
@@ -423,13 +391,9 @@ def checkTarget():
 
 
 
-#Returns False only if all three of them are false
+#Returns True if there are at least 3 True in last 5 measures
 def threeMeasuresResults(measures):
-    if (measures[0]):
-        return(measures[1] or measures[2])
-    else:
-        return (measures[1] and measures[2])
-
+    return sum(measures)>=3
 
 
 #Lowers neck
@@ -456,7 +420,7 @@ def raiseNeck():
 #NOTE: if we have time, it would be better to implement this version (to check enemy size)
 def checkEnemy(frame, direction):
 
-    MIN_RADIUS = 20
+    MIN_RADIUS = 75
 
     #Resize the frame, inverted ("vertical flip" w/ 180degrees),
     #Blur it, and convert it to the HSV color space
@@ -474,7 +438,6 @@ def checkEnemy(frame, direction):
     cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
 
     if len(cnts) == 0:
-        print("primo if")
         return (False, direction)
 
     #Find the largest contour in the mask, then use
@@ -485,12 +448,12 @@ def checkEnemy(frame, direction):
 
     # only proceed if the radius meets a minimum size
     if radius > MIN_RADIUS:
-
-        if x > 400:
+        print(x)
+        if x > 500:
             return (True, ENEMY_RIGHT)
-        if x < 200:
+        if x < 100:
             return (True, ENEMY_LEFT)
-        if (x > 200 and x < 400):
+        if (x > 100 and x < 500):
             return (True, ENEMY_FORWARD)
 
     return (False, direction)
@@ -526,13 +489,13 @@ def stopMusic():
 
 #Open or close the spines
 def moveSpines():
-    GPIO.output(IN_SPINES, GPIO.HIGH) 
+    GPIO.output(IN_SPINES, GPIO.HIGH)
     time.sleep(0.148)
     GPIO.output(IN_SPINES, GPIO.LOW)
-    
+
 #Rotate the target of 90°
 def moveTarget():
-	GPIO.output(IN_TARGET, GPIO.HIGH) 
+	GPIO.output(IN_TARGET, GPIO.HIGH)
 	time.sleep(0.14)
 	GPIO.output(IN_TARGET, GPIO.LOW)
 
@@ -592,6 +555,7 @@ def startGame(chat_id):
     distanceBack            = 1.0
     spinesAreOpen           = False
 
+
     #Timers to keep score updated
     start_time_drinking = 0
     start_time_inactive = 0
@@ -600,15 +564,15 @@ def startGame(chat_id):
 
     #Array containing the last three measures from some of the sensors
     #(to make robot resilient to measurement errors)
-    pond_measures   = [False, False, False]
-    eaten_measures  = [False, False, False]
-    eating_measures = [False, False, False]
+    pond_measures   = [False, False, False, False, False]
+    eaten_measures  = [False, False, False, False, False]
+    eating_measures = [False, False, False, False, False]
     index_measures  = 0
 
     #Start
     changeEmotion(EMOTION_NORMAL, chat_id)
     startTime = time.time()
-    lastTimeNeckWasRaised = startTime
+    lastTimeWasStuck = startTime
     index_measures = 0
 
     #For the first 5s the robot just goes forward to get to the pond
@@ -622,7 +586,7 @@ def startGame(chat_id):
             stop()
             changeEmotion(EMOTION_DRINKING, chat_id)
             start_time_drinking = time.time()
-            pond_measures = [True, True, True]
+            pond_measures = [True, True, True, True, True]
             break
 
 
@@ -632,13 +596,14 @@ def startGame(chat_id):
         ############# SENSORS #################
         (grabbed, frame)  = camera.read()
         (enemy_in_sight, enemy_direction)    = checkEnemy(frame, enemy_direction)
-        is_on_pond        = is_color(signal_pond, COLOR_BLUE)
         is_target_touched = checkTarget()
+        is_on_pond        = is_color(signal_pond, COLOR_BLUE)
         is_touching       = is_color(signal_targ, COLOR_RED)
         pond_measures[index_measures]   = is_on_pond
-        eaten_measures[index_measures]  = is_target_touched
         eating_measures[index_measures] = is_touching
-        index_measures = (index_measures + 1) % 3
+        eaten_measures[index_measures]  = is_target_touched
+        index_measures = (index_measures + 1) % 5
+
 
         #Check if there's threats on the sides (only do it every 20 cycles to avoid wasting time in the computeDistances)
         check_on_the_sides += 1
@@ -690,11 +655,9 @@ def startGame(chat_id):
         if not threeMeasuresResults(eaten_measures) and isEaten:
             isEaten = False
             state = WALKING
-            changeEmotion(EMOTION_WALKING, chat_id)
+            changeEmotion(EMOTION_NORMAL, chat_id)
             stop_time_eaten = time.time()
             score = updateScore(start_time_eaten, stop_time_eaten, POINTS_FOR_EATEN, score)
-
-
 
 
         ################    ENEMY'S TARGET  ###############
@@ -715,14 +678,15 @@ def startGame(chat_id):
             score = updateScore(start_time_eating, stop_time_eating, POINTS_FOR_EATING, score)
 
 
-        ################ PERIODICALLY RAISE NECK AND GO BACKWARDS ###################
-        if time.time() > (lastTimeNeckWasRaised + 30) and not isEating:
-            lastTimeNeckWasRaised = time.time()
-            raiseNeck()
-            if not isDrinking:
-                backwardLeft()
-                time.sleep(1.0)
-                stop()
+        ################ PERIODICALLY GO BACKWARDS ###################
+        if time.time() > (lastTimeWasStuck + 30) and not isEating and not isDrinking:
+            lastTimeNeckWasStuck = time.time()
+            backwardLeft()
+            time.sleep(1.5)
+            stop()
+            time.sleep(0.1)
+            right()
+            time.sleep(0.5)
 
 
 
@@ -735,12 +699,12 @@ def startGame(chat_id):
             if (not spinesAreOpen):
                 moveSpines()
                 spinesAreOpen = True
-                    
+
         else:
             if (spinesAreOpen):
                 moveSpines()
                 spinesAreOpen = False
-            
+
 
 
         ###############      INACTIVITY  ##################
@@ -904,25 +868,6 @@ def startGame(chat_id):
                 changeEmotion(EMOTION_NORMAL, chat_id)
 
 
-
-
-        #DOUBTS
-        # - enemy_in_sight always trigger ATTACKNG state? -> now only triggers if robot is not drinking/being eaten. We need to test min_size enemy
-        # - do we always try to get parallel to every obstacle in front?
-
-        #FURTHER IDEAS
-        # - Camera in POND_NEAR
-
-        #ADJUST
-        # - AdjustParallels uses sleep
-        # - Target is always moving
-        # - State eaten should be prioritized on all the others
-
-        #IMPLEMENT
-        # - Spines
-
-
-    #motor_target.stop()
     stop()
     stopTime = time.time()
     changeEmotion(EMOTION_SLEEP, chat_id)
@@ -954,8 +899,8 @@ def wait_msg(msg):
     command = command_text[0]
 
     if command == '/help':
-        bot.sendMessage(chat_id, 
-"photo - Sends a picture\n\n\
+        bot.sendMessage(chat_id,
+"/photo - Sends a picture\n\n\
 -------------------> SENSORS <---------------------\n\
 /pond - Checks if on pond\n\
 /eating - Checks if eating\n\
@@ -1056,7 +1001,6 @@ Proceeding to calibration".format(blue_treshold, red_treshold))
     if command == '/stop':
         stop()
 
-    ##CHANGE TARGET + SPINES. NO MORE PWM
     if command == '/moveTarget':
         moveTarget()
 
@@ -1065,7 +1009,7 @@ Proceeding to calibration".format(blue_treshold, red_treshold))
 
     if command == '/neck':
         lowerNeck()
-        time.sleep(1.5)
+        time.sleep(2.0)
         raiseNeck()
 
     if command == '/em1':
@@ -1111,7 +1055,7 @@ Proceeding to calibration".format(blue_treshold, red_treshold))
         bot.sendMessage(chat_id, "{0}".format(str(isEnemy)))
 
     if command == '/IP':
-        cli_command = "hostname -I" 
+        cli_command = "hostname -I"
         proc = subprocess.Popen(cli_command, shell=True, preexec_fn=os.setsid, stdout=subprocess.PIPE)
         line = proc.stdout.readline()
         address = line.rstrip().decode("utf-8")
