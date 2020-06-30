@@ -1,0 +1,11 @@
+echo Adding new wifi
+sudo python /home/pi/add_wifi_from_usb.py
+echo Adding new music
+sudo python /home/pi/add_music_from_usb.py
+echo Starting environment
+source /.bashrc
+workon cv
+echo Environment started
+echo Starting Herokidna
+sudo python /home/pi/herokidna.py
+shutdown
