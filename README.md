@@ -9,4 +9,4 @@ The code we used is divided into five different files:
  - boot_commands.txt -> after you execute "nano .bashrc" on your Raspberry, place these lines at the end of the file, to execute all the files on boot
  - instructions_for_spotify.txt -> follow these instructions to make your robot a remote speaker for Spotify (unfortunately our Raspberry had some issues and couldn't play sounds this way, but in general these instructions works fine)
  
-If you're curious to find out more about our robot, check out this [video presentation](https://vimeo.com/433747450)!
+If you're curious to find out more about our robot, check out this [video presentation](https://www.youtube.com/watch?v=Tnk5hBs34hY)!
