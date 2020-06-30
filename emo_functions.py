@@ -9,7 +9,7 @@ num_pixels = 128
 ORDER = neopixel.GRB   #This way (x,y,z) are RGB
 
 pixels = neopixel.NeoPixel(
-    pixel_pin, num_pixels, brightness=0.10, auto_write=False, pixel_order=ORDER
+    pixel_pin, num_pixels, brightness=0.12, auto_write=False, pixel_order=ORDER
 )
 
 # With br=0.03, the minimum value visible is 34.

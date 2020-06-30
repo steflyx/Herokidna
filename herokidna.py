@@ -420,7 +420,7 @@ def raiseNeck():
 #NOTE: if we have time, it would be better to implement this version (to check enemy size)
 def checkEnemy(frame, direction):
 
-    MIN_RADIUS = 75
+    MIN_RADIUS = 20
 
     #Resize the frame, inverted ("vertical flip" w/ 180degrees),
     #Blur it, and convert it to the HSV color space
@@ -1010,6 +1010,10 @@ Proceeding to calibration".format(blue_treshold, red_treshold))
     if command == '/neck':
         lowerNeck()
         time.sleep(2.0)
+        raiseNeck()
+    if command == '/lowerNeck':
+        lowerNeck()
+    if command == '/raiseNeck':
         raiseNeck()
 
     if command == '/em1':
