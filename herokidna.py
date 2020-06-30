@@ -11,6 +11,7 @@ import threading
 import subprocess
 import sys
 import os
+from telegramCredentials import token
 
 
 #Music
@@ -1220,7 +1221,7 @@ emotionsHandler.start()
 if __name__ == '__main__':
     
     print("Activating bot!")
-    bot = telepot.Bot('1101611527:AAEduLaYX-wnEnhFYZEJdp2RwzbFxo7_k2g')
+    bot = telepot.Bot(token)
     print("Bot activated!")
     bot.message_loop(wait_msg)
     while 1:
