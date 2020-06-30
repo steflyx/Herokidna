@@ -9,11 +9,10 @@ num_pixels = 128
 ORDER = neopixel.GRB   #This way (x,y,z) are RGB
 
 pixels = neopixel.NeoPixel(
-    pixel_pin, num_pixels, brightness=0.05, auto_write=False, pixel_order=ORDER
+    pixel_pin, num_pixels, brightness=0.10, auto_write=False, pixel_order=ORDER
 )
 
 # With br=0.03, the minimum value visible is 34.
-# With br=0.02, the minimum value visible is 50.
 #DEFINING COLOURS
 ORANGE = (255, 65, 0)
 YELLOW = (255, 170, 0)
@@ -56,6 +55,20 @@ def idleTh():
                 pixels[i+64] = pixels[i]
             pixels.show()
             time.sleep(0.001)
+            
+def sleepTh():
+        p = AZURE
+        slp1 = [0,0,0,0,0,0,0,0,
+                0,0,p,p,p,p,0,0,
+                0,p,p,p,p,p,p,0,
+                p,p,0,0,0,0,p,p,
+                p,p,0,0,0,0,p,p,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0]
+        for i in range(128):
+            pixels[i] = slp1[i%64]
+        pixels.show()
 
 def defenseTh():
    # def run(self):

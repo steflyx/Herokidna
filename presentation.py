@@ -13,7 +13,7 @@ import pygame
 import subprocess
 import sys
 import os
-from telegramCredentials import token
+from telegramCredentials import tokenPres
 
 #Music
 MusicDirectory = "MusicEffects/"
@@ -1098,7 +1098,7 @@ if __name__ == '__main__':
 
     print("Activating bot!")
 
-    bot = telepot.Bot(token)
+    bot = telepot.Bot(tokenPres)
     print("Bot activated!")
     bot.message_loop(wait_msg)
     while 1:

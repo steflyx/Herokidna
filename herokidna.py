@@ -11,8 +11,7 @@ import threading
 import subprocess
 import sys
 import os
-from telegramCredentials import token
-
+from telegramCredentials import tokenHero
 
 #Music
 MUSIC_DIRECTORY = "MusicEffects/"
@@ -54,7 +53,10 @@ GPIO.setup(ENA_WHEEL, GPIO.OUT)
 GPIO.setup(ENB_WHEEL, GPIO.OUT)
 GPIO.output(ENA_WHEEL,GPIO.HIGH)
 GPIO.output(ENB_WHEEL,GPIO.HIGH)
+TIME_TO_ROTATE_90       = 1.6   #Default time to rotate of 90°  ---> can be set via /rotate90  1.6
+TIME_TO_ROTATE_135      = 2.4   #Default time to rotate of 135° ---> can be set via /rotate135 2.4
 print("Wheel ok")
+
 
 #Motors target
 IN1_TARGET = 14
@@ -107,7 +109,6 @@ GPIO.setup(ULTRA_ECHO_BACK, GPIO.IN)
 GPIO.setup(ULTRA_ECHO_LEFT_FRONT, GPIO.IN)
 GPIO.setup(ULTRA_ECHO_LEFT_BACK, GPIO.IN)
 GPIO.setup(ULTRA_ECHO_RIGHT, GPIO.IN)
-offset = 0
 print("Ultrasonic ok")
 
 #Game info
@@ -171,7 +172,7 @@ def backwardRight():
     GPIO.output(IN2_WHEEL, GPIO.LOW)
     GPIO.output(IN3_WHEEL, GPIO.LOW)
     GPIO.output(IN4_WHEEL, GPIO.HIGH)
-    
+
 def backwardLeft():
     GPIO.output(IN1_WHEEL, GPIO.LOW)
     GPIO.output(IN2_WHEEL, GPIO.HIGH)
@@ -366,9 +367,6 @@ def computeDistance(echo):
     #To avoid interferences beetween consecutive calls
     time.sleep(0.005)
 
-    #Add the offset for correcting measures on left side
-    if (echo == 7):
-        distance += offset
     return distance
 
 
@@ -588,8 +586,6 @@ def startGame(chat_id):
     ATTACK_DISTANCE         = 0.2   #Distance from which it is possible to attempt an attack
     TIME_TO_DROP_POND       = 3.0   #Time that needs to pass after having last seen the pond before dropping the research
     TIME_TO_DROP_ATTACK     = 2.0   #Time that needs to pass after having last seen an enemy before dropping an attack
-    TIME_TO_ROTATE_90       = 1.6   #Time needed to rotate of 90°
-    TIME_TO_ROTATE_135      = 2.4   #Time needed to rotate of 135°
     GO_FOR_POND_TIME        = 5.0   #Starting time for reaching the pond
 
     #States for pond research
@@ -606,7 +602,7 @@ def startGame(chat_id):
     #States for defending
     DEFENDING        = 7
     EATEN            = 8
-    
+
     OLD_STATE        = 0
 
     #Info on the robot
@@ -753,8 +749,8 @@ def startGame(chat_id):
             changeEmotion(EMOTION_ATTACKING, chat_id)
             stop_time_eating = time.time()
             score = updateScore(start_time_eating, stop_time_eating, POINTS_FOR_EATING, score)
-            
-        
+
+
         ################ PERIODICALLY RAISE NECK AND GO BACKWARDS ###################
         if time.time() > (lastTimeNeckWasRaised + 30) and not isEating:
             lastTimeNeckWasRaised = time.time()
@@ -762,7 +758,7 @@ def startGame(chat_id):
             if not isDrinking:
                 backwardLeft()
                 time.sleep(0.6)
-            
+
 
 
         ################## MOVING TARGET + SPINES #######################
@@ -783,8 +779,8 @@ def startGame(chat_id):
                 start_time_inactive = time.time()
         else:
             start_time_inactive = time.time()
-            
-            
+
+
 
 
         #STATE: WALKING
@@ -975,22 +971,21 @@ def wait_msg(msg):
     global camera
     global current_emotion
     global volume
+    global TIME_TO_ROTATE_90
+    global TIME_TO_ROTATE_135
     chat_id = msg['chat']['id']
     command_text = msg['text'].split(" ")
     command = command_text[0]
 
     if command == '/help':
-        bot.sendMessage(chat_id,
-"/setup - Used to calibrate the sensors\n\
-/photo - Sends a picture\n\n\
----------------------> SENSORS <------------------------\n\
+        bot.sendMessage(chat_id, 
+"photo - Sends a picture\n\n\
+-------------------> SENSORS <---------------------\n\
 /pond - Checks if on pond\n\
 /eating - Checks if eating\n\
-/calibrateColor - Calibrates the color sensors\n\
-/calibrateUltra - Calibrates the ultrasonic sensors\n\
 /eaten - Checks if eaten\n\
 /ultra - Returns distance from ultrasonic sensors\n\n\
----------------------> MOTORS <-------------------------\n\
+-------------------> MOTORS <----------------------\n\
 /moveTarget - Moves the target of 90°\n\
 /moveSpines - Moves the spines for 2s\n\
 /openSpines - Opens the spines\n\
@@ -1000,22 +995,27 @@ def wait_msg(msg):
 /moveRight - Moves right 90°\n\
 /moveLeft - Moves left 90°\n\
 /moveBackward - Moves backward for 1.5 s\n\
-/rotate90 - used to calibrate TIME_TO_ROTATE_90\n\
-/rotate135 - used to calibrate TIME_TO_ROTATE_135\n\
 /stop - Stops the robot\n\n\
----------------------> EMOTIONS <-------------------------\n\
+------------------> EMOTIONS <---------------------\n\
 /em1 - Normal emotions\n\
 /em2 - Attacking emotions\n\
 /em3 - Drinking emotions\n\
-/em4 - Sleeping emotions\n\
-/em5 - Defending emotions\n\n\
----------------------> FUNCTIONS <-------------------------\n\
+/em4 - Defending emotions\n\
+/em5 - Sleeping emotions\n\n\
+--------------------> MUSIC <----------------------\n\
 /playMusic - plays some music\n\
-/stopMusic - stops playing music \n\
+/stopMusic - stops playing music\n\
+/lowerVolume - decrease the level of volume\n\
+/raiseVolume - increase the level of volume\n\n\
+-------------------> FUNCTIONS <-------------------\n\
 /checkEnemy - checks if an enemy is in sight\n\
 /IP - returns the IP address of the robot\n\
 /controls - Simplified controls\n\
-/exit - turns off the robot\n\
+/shutdown - turns off the robot\n\n\
+------------------> CALIBRATIONS <-----------------\n\
+/calibrate - Calibrates the color sensors\n\
+/rotate90 <x.y> - Calibration of TIME_TO_ROTATE_90\n\
+/rotate135 <x.y> - Calibration of TIME_TO_ROTATE_135\n\
 ")
 
     if command == '/start':
@@ -1040,30 +1040,11 @@ def wait_msg(msg):
         result = is_color(signal_targ, COLOR_RED)
         bot.sendMessage(chat_id, str(result))
 
-    if command == '/calibrateColor':
+    if command == '/calibrate':
         bot.sendMessage(chat_id, "Blue treshold is now: {0}\n\
 Red treshold is now: {1}\n\
 Proceeding to calibration".format(blue_treshold, red_treshold))
         calibrate(chat_id)
-
-    if command == '/calibrateUltra':
-        global offset
-        offset = 0
-        i = 0
-        diff = []
-
-        bot.sendMessage(chat_id, "Place the robot with its left side parallel to a smooth wall distant 30cm\n\
-You have 10seconds before the calibration begins")
-        time.sleep(10)
-        bot.sendMessage(chat_id, "Calibrating .....")
-        while (i < 5):
-            diff.append(calibrateUltra(50, chat_id))
-            i += 1
-        i = 0
-        time.sleep(1)
-        offset = sum(diff)/500
-        bot.sendMessage(chat_id, "Calibration succesfull!\nDifference: {0} cm".format(diff))
-        bot.sendMessage(chat_id, "New offset: {0} cm".format(offset*100))
 
     if command == '/eaten':
         result = checkTarget()
@@ -1085,12 +1066,12 @@ You have 10seconds before the calibration begins")
 
     if command == '/moveRight':
         right()
-        time.sleep(2.2)
+        time.sleep(TIME_TO_ROTATE_90)
         stop()
 
     if command == '/moveLeft':
         left()
-        time.sleep(2.1)
+        time.sleep(TIME_TO_ROTATE_90)
         stop()
 
     if command == '/moveBackward':
@@ -1160,11 +1141,11 @@ You have 10seconds before the calibration begins")
 
     if command == '/stopMusic':
         stopMusic()
-        
+
     if command == '/lowerVolume':
         if (volume > -5699):
             volume -= 300
-    
+
     if command == '/raiseVolume':
         if (volume < -299):
             volume += 300
@@ -1178,38 +1159,36 @@ You have 10seconds before the calibration begins")
         bot.sendMessage(chat_id, "{0}".format(str(isEnemy)))
 
     if command == '/IP':
-        cli_command = "hostname -I"
+        cli_command = "hostname -I" 
         proc = subprocess.Popen(cli_command, shell=True, preexec_fn=os.setsid, stdout=subprocess.PIPE)
         line = proc.stdout.readline()
         address = line.rstrip().decode("utf-8")
         bot.sendMessage(chat_id, address)
 
-    if command == '/exit':
+    if command == '/shutdown':
         bot.sendMessage(chat_id, "Bye!\nRemember to switch off the motors, turn off the speaker and unplug the powerbank")
         stop()
         stopMusic()
-        sys.exit()
+        #closeSpines()
+        GPIO.cleanup()
+        subprocess.call('sudo shutdown -h now', shell = True)
 
     if command == '/rotate90':
-        bot.sendMessage(chat_id, "Right-rotating 90°")
+        bot.sendMessage(chat_id, "rotating time was: {0}".format(TIME_TO_ROTATE_90))
+        if len(command_text) > 1:
+            TIME_TO_ROTATE_90 = float(command_text[1])
+        bot.sendMessage(chat_id, "start rotating with: {0}".format(TIME_TO_ROTATE_90))
         right()
-        time.sleep(1.6)
+        time.sleep(TIME_TO_ROTATE_90)
         stop()
 
     if command == '/rotate135':
-        bot.sendMessage(chat_id, "Right-rotating 135°")
+        bot.sendMessage(chat_id, "rotating time was: {0}".format(TIME_TO_ROTATE_135))
+        if len(command_text) > 1:
+            TIME_TO_ROTATE_135 = float(command_text[1])
+        bot.sendMessage(chat_id, "start rotating with: {0}".format(TIME_TO_ROTATE_135))
         right()
-        time.sleep(2.4)
-        stop()
-        
-    if command == '/go90':
-        bot.sendMessage(chat_id, "go 90°")
-        forward()
-        time.sleep(1.0)
-        stop()
-        time.sleep(0.1)
-        right()
-        time.sleep(1.6)
+        time.sleep(TIME_TO_ROTATE_135)
         stop()
 
 
@@ -1219,9 +1198,9 @@ emotionsHandler = threading.Thread(target=emotionsHandlerTh, args=())
 emotionsHandler.start()
 
 if __name__ == '__main__':
-    
+
     print("Activating bot!")
-    bot = telepot.Bot(token)
+    bot = telepot.Bot(tokenHero)
     print("Bot activated!")
     bot.message_loop(wait_msg)
     while 1:
